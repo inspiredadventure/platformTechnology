@@ -1,4 +1,4 @@
--- Ensure you also have this initialization script in the same directory as the compose.yaml file:
+-- Ensure this initialization script in the same directory as the compose.yaml file:
 
 CREATE DATABASE authentik;
 CREATE DATABASE temporal;

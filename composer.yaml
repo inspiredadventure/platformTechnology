@@ -1,6 +1,4 @@
-docker-compose.yml
-
-version: '3.8'
+version: "3.8"
 
 services:
   traefik:
@@ -22,9 +20,9 @@ services:
   db:
     image: postgres:15-alpine
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: mydatabase
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=mydatabase
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
@@ -43,12 +41,12 @@ services:
     image: ghcr.io/goauthentik/server:latest
     command: server
     environment:
-      AUTHENTIK_REDIS__HOST: redis
-      AUTHENTIK_POSTGRESQL__HOST: db
-      AUTHENTIK_POSTGRESQL__USER: user
-      AUTHENTIK_POSTGRESQL__NAME: authentik
-      AUTHENTIK_POSTGRESQL__PASSWORD: password
-      AUTHENTIK_SECRET_KEY: placeholder_secret_key
+      - AUTHENTIK_REDIS__HOST=redis
+      - AUTHENTIK_POSTGRESQL__HOST=db
+      - AUTHENTIK_POSTGRESQL__USER=user
+      - AUTHENTIK_POSTGRESQL__NAME=authentik
+      - AUTHENTIK_POSTGRESQL__PASSWORD=password
+      - AUTHENTIK_SECRET_KEY=placeholder_secret_key
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.authentik.rule=Host(`authentik.localhost`)"
@@ -61,12 +59,12 @@ services:
     image: ghcr.io/goauthentik/server:latest
     command: worker
     environment:
-      AUTHENTIK_REDIS__HOST: redis
-      AUTHENTIK_POSTGRESQL__HOST: db
-      AUTHENTIK_POSTGRESQL__USER: user
-      AUTHENTIK_POSTGRESQL__NAME: authentik
-      AUTHENTIK_POSTGRESQL__PASSWORD: password
-      AUTHENTIK_SECRET_KEY: placeholder_secret_key
+      - AUTHENTIK_REDIS__HOST=redis
+      - AUTHENTIK_POSTGRESQL__HOST=db
+      - AUTHENTIK_POSTGRESQL__USER=user
+      - AUTHENTIK_POSTGRESQL__NAME=authentik
+      - AUTHENTIK_POSTGRESQL__PASSWORD=password
+      - AUTHENTIK_SECRET_KEY=placeholder_secret_key
     user: root
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
@@ -127,12 +125,3 @@ networks:
 volumes:
   postgres_data:
   nats_data:
-
-init-db.sql
-
-This file is mounted to the database to automatically create the required databases for the services above:
-
-CREATE DATABASE authentik;
-CREATE DATABASE temporal;
-CREATE DATABASE temporal_visibility;
-CREATE DATABASE gorules;
