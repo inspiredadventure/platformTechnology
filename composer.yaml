@@ -1,0 +1,138 @@
+docker-compose.yml
+
+version: '3.8'
+
+services:
+  traefik:
+    image: traefik:v2.10
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    networks:
+      - public_net
+      - private_net
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: mydatabase
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    networks:
+      - private_net
+
+  nats:
+    image: nats:2.9-alpine
+    command: ["-js", "-sd", "/data"]
+    volumes:
+      - nats_data:/data
+    networks:
+      - private_net
+
+  authentik-server:
+    image: ghcr.io/goauthentik/server:latest
+    command: server
+    environment:
+      AUTHENTIK_REDIS__HOST: redis
+      AUTHENTIK_POSTGRESQL__HOST: db
+      AUTHENTIK_POSTGRESQL__USER: user
+      AUTHENTIK_POSTGRESQL__NAME: authentik
+      AUTHENTIK_POSTGRESQL__PASSWORD: password
+      AUTHENTIK_SECRET_KEY: placeholder_secret_key
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.authentik.rule=Host(`authentik.localhost`)"
+      - "traefik.http.routers.authentik.entrypoints=web"
+      - "traefik.http.services.authentik.loadbalancer.server.port=9000"
+    networks:
+      - private_net
+
+  authentik-worker:
+    image: ghcr.io/goauthentik/server:latest
+    command: worker
+    environment:
+      AUTHENTIK_REDIS__HOST: redis
+      AUTHENTIK_POSTGRESQL__HOST: db
+      AUTHENTIK_POSTGRESQL__USER: user
+      AUTHENTIK_POSTGRESQL__NAME: authentik
+      AUTHENTIK_POSTGRESQL__PASSWORD: password
+      AUTHENTIK_SECRET_KEY: placeholder_secret_key
+    user: root
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - private_net
+
+  redis:
+    image: redis:alpine
+    networks:
+      - private_net
+
+  temporal:
+    image: temporalio/auto-setup:latest
+    environment:
+      - DB=postgresql
+      - DB_PORT=5432
+      - POSTGRES_USER=user
+      - POSTGRES_PWD=password
+      - POSTGRES_SEEDS=db
+      - DBNAME=temporal
+      - VISIBILITY_DBNAME=temporal_visibility
+    networks:
+      - private_net
+
+  brms:
+    image: gorules/brms:latest
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=user
+      - DB_PASSWORD=password
+      - DB_NAME=gorules
+      - DB_SSL_DISABLED=true
+    networks:
+      - private_net
+
+  # Placeholder service to demonstrate Traefik routing
+  app-placeholder:
+    image: nginx:alpine
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.app.rule=Host(`app.localhost`)"
+      - "traefik.http.routers.app.entrypoints=web"
+      - "traefik.http.services.app.loadbalancer.server.port=80"
+    networks:
+      - public_net
+      - private_net
+    deploy:
+      replicas: 0
+
+networks:
+  public_net:
+    driver: bridge
+  private_net:
+    driver: bridge
+    internal: true
+
+volumes:
+  postgres_data:
+  nats_data:
+
+init-db.sql
+
+This file is mounted to the database to automatically create the required databases for the services above:
+
+CREATE DATABASE authentik;
+CREATE DATABASE temporal;
+CREATE DATABASE temporal_visibility;
+CREATE DATABASE gorules;
